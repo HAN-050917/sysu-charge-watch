@@ -1,0 +1,139 @@
+{
+  "_note": "中山大学深圳校区点位归并表。location 为平台返回的原始字符串（注意部分含前导/中段空格），同一 site_id 下可有多条 raw location。",
+  "campus": {
+    "name": "中山大学深圳校区",
+    "address": "广东省深圳市光明区公常路66号",
+    "center": {
+      "lng": 113.9457,
+      "lat": 22.8036
+    },
+    "scan_centers": [
+      {
+        "lng": 113.941,
+        "lat": 22.8
+      },
+      {
+        "lng": 113.936,
+        "lat": 22.799
+      },
+      {
+        "lng": 113.945,
+        "lat": 22.802
+      },
+      {
+        "lng": 113.939,
+        "lat": 22.796
+      },
+      {
+        "lng": 113.943,
+        "lat": 22.805
+      },
+      {
+        "lng": 113.933,
+        "lat": 22.802
+      }
+    ],
+    "location_match": "中山大学(深圳校区)",
+    "scan_distance_km": 3
+  },
+  "sites": [
+    {
+      "site_id": "dongjiaoxuelou",
+      "name": "东教学楼",
+      "short": "东教",
+      "raw_locations": [
+        "中山大学(深圳校区)东教学楼"
+      ],
+      "center": {
+        "lng": 113.95077,
+        "lat": 22.80656
+      }
+    },
+    {
+      "site_id": "dongyuansushe",
+      "name": "东园宿舍",
+      "short": "东宿",
+      "raw_locations": [
+        "中山大学(深圳校区)东园宿舍"
+      ],
+      "center": {
+        "lng": 113.95912,
+        "lat": 22.80481
+      }
+    },
+    {
+      "site_id": "xiyuan4",
+      "name": "西园4栋宿舍",
+      "short": "西4",
+      "raw_locations": [
+        "中山大学(深圳校区)西园4栋宿舍"
+      ],
+      "center": {
+        "lng": 113.93904,
+        "lat": 22.80171
+      }
+    },
+    {
+      "site_id": "yixueyuan",
+      "name": "医学园",
+      "short": "医学",
+      "raw_locations": [
+        "中山大学(深圳校区)医学园"
+      ],
+      "center": {
+        "lng": 113.94654,
+        "lat": 22.80055
+      }
+    },
+    {
+      "site_id": "ximenyouse",
+      "name": "西门右侧",
+      "short": "西门",
+      "raw_locations": [
+        "中山大学(深圳校区)西门右侧",
+        "中山大学(深圳校区) 西门右侧"
+      ],
+      "center": {
+        "lng": 113.94186,
+        "lat": 22.80031
+      }
+    },
+    {
+      "site_id": "dongyuanshitang",
+      "name": "东园食堂地下停车场",
+      "short": "食堂",
+      "raw_locations": [
+        "中山大学(深圳校区)东园食堂地下停车场"
+      ],
+      "center": {
+        "lng": 113.95648,
+        "lat": 22.80363
+      }
+    }
+  ],
+  "cabinet_types": {
+    "1": "换电柜",
+    "2": "充电柜",
+    "3": "充电桩",
+    "4": "汽车充电桩",
+    "5": "混合柜"
+  },
+  "levels": {
+    "none": {
+      "label": "已满",
+      "desc": "无空闲桩位"
+    },
+    "low": {
+      "label": "紧张",
+      "desc": "空闲率 ≤ 15%"
+    },
+    "mid": {
+      "label": "一般",
+      "desc": "空闲率 15%–40%"
+    },
+    "high": {
+      "label": "充裕",
+      "desc": "空闲率 > 40%"
+    }
+  }
+}

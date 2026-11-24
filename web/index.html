@@ -1,0 +1,294 @@
+<!doctype html>
+<html lang="zh-CN" data-family="swiss" data-medium="page" data-theme="safety-orange">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>中大深圳 · 充电桩空位｜实时看板</title>
+<meta name="description" content="中山大学深圳校区 6 个点位充电桩空闲数与占用时长的实时推算看板。">
+<meta name="color-scheme" content="light">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' fill='%230a0a0a'/%3E%3Crect x='7' y='7' width='18' height='18' fill='%23FF6B35'/%3E%3C/svg%3E">
+<link rel="stylesheet" href="gz-swiss.css">
+<link rel="stylesheet" href="vendor/leaflet/leaflet.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip-link" href="#sites">跳到点位明细</a>
+
+<header class="masthead wrap">
+  <div class="masthead__top">
+    <p class="kicker">
+      <span class="kicker__bar" aria-hidden="true"></span>
+      SYSU · SHENZHEN CAMPUS / 充电桩实况
+    </p>
+    <p class="masthead__addr">广东省深圳市光明区公常路 66 号</p>
+  </div>
+
+  <h1 class="masthead__title">中大深圳<span class="masthead__sep">·</span>充电桩空位</h1>
+
+  <p class="masthead__deck">
+    6 个点位、<span class="gz-tnum" id="deck-cabinets">48</span> 台电柜的空闲桩位实时查看；
+    使用中桩位的已充时长与剩余空出时间，由空闲数变化历史推算。
+  </p>
+
+  <section class="status-strip" aria-label="数据时效与刷新">
+    <div class="status-strip__main">
+      <p class="status-strip__badge" id="mode-badge" data-mode="live">
+        <span class="status-strip__dot" aria-hidden="true"></span>
+        <span id="mode-text">连接中</span>
+      </p>
+      <dl class="status-strip__facts">
+        <div class="fact">
+          <dt>上次采集</dt>
+          <dd id="fact-poll">—</dd>
+        </div>
+        <div class="fact">
+          <dt>距今</dt>
+          <dd id="fact-age">—</dd>
+        </div>
+        <div class="fact fact--wide">
+          <dt>下一次自动刷新</dt>
+          <dd><span class="gz-tnum" id="fact-countdown">60</span> 秒</dd>
+        </div>
+      </dl>
+      <div class="status-strip__actions">
+        <button class="btn btn--on-ink" type="button" id="btn-refresh">
+          <span id="btn-refresh-text">立即刷新</span>
+        </button>
+      </div>
+    </div>
+    <div class="status-strip__track" aria-hidden="true"><span id="refresh-track"></span></div>
+    <p class="status-strip__note" id="status-note" role="status" aria-live="polite"></p>
+  </section>
+</header>
+
+<main class="wrap">
+
+  <section class="auth-panel" id="auth-panel" aria-labelledby="h-auth">
+    <div class="auth-panel__head">
+      <span class="auth-panel__num gz-t-meta">A</span>
+      <h2 id="h-auth">登录凭证（可选）</h2>
+      <p class="auth-panel__meta">填入抓包得到的 token 与手机号，解锁逐桩位真实状态与已充时长</p>
+    </div>
+    <div class="auth-panel__body">
+      <label class="auth-panel__label" for="auth-paste">一键粘贴（推荐）· 整条抓包请求自动识别</label>
+      <textarea class="auth-panel__input auth-panel__paste" id="auth-paste" rows="4" autocomplete="off"
+             spellcheck="false" placeholder="把 Fiddler / 抓包工具里任意一条 cloud.tosunelectric.com 请求的完整内容整条复制粘贴到这里，自动提取 token 与手机号，无需手动找字段"></textarea>
+      <div class="auth-panel__actions">
+        <button class="btn" type="button" id="auth-parse">识别并填入</button>
+      </div>
+      <p class="auth-panel__hint" id="auth-paste-hint">token 与手机号只在本机识别，不会上传到任何地方。</p>
+      <div class="auth-panel__sep"></div>
+      <label class="auth-panel__label" for="auth-token">平台 token（手动填写也可）</label>
+      <input class="auth-panel__input" id="auth-token" type="password" autocomplete="off"
+             spellcheck="false" placeholder="粘贴请求头里的 token">
+      <label class="auth-panel__label" for="auth-mobile">手机号 mobile</label>
+      <input class="auth-panel__input" id="auth-mobile" type="password" inputmode="numeric" autocomplete="off"
+             spellcheck="false" placeholder="同一批请求参数里的 mobile（11 位）">
+      <div class="auth-panel__actions">
+        <button class="btn" type="button" id="auth-save">保存并验证</button>
+        <button class="btn btn--ghost" type="button" id="auth-check">重新验证</button>
+        <button class="btn btn--ghost" type="button" id="auth-clear">清除</button>
+      </div>
+    </div>
+    <p class="auth-panel__state" id="auth-state" role="status" aria-live="polite">当前未配置凭证，逐桩位状态为推算值。</p>
+    <p class="auth-panel__hint">token 与手机号仅保存在本机后端配置文件，不会写入浏览器存储或出现在网址中。清除后自动回到公开推算模式。</p>
+  </section>
+
+  <section class="sec" id="overview" aria-labelledby="h-overview">
+    <div class="sec-head">
+      <span class="sec-head__num gz-t-meta">01</span>
+      <h2 id="h-overview">全场概览</h2>
+      <p class="sec-head__meta">按电柜 <code>chargeable</code> / <code>capacity</code> 聚合</p>
+    </div>
+
+    <div class="stat-row" id="stat-row">
+      <div class="stat stat--skeleton"></div>
+      <div class="stat stat--skeleton"></div>
+      <div class="stat stat--skeleton"></div>
+      <div class="stat stat--skeleton"></div>
+      <div class="stat stat--skeleton"></div>
+    </div>
+
+    <ul class="insights" id="insights" aria-label="要点提示"></ul>
+  </section>
+
+  <section class="sec" id="finder" aria-labelledby="h-finder">
+    <div class="sec-head">
+      <span class="sec-head__num gz-t-meta">02</span>
+      <h2 id="h-finder">区域空位查询</h2>
+      <p class="sec-head__meta">选区域 · 看全部空闲桩位 · 无空位时看最快空出的 3–5 个</p>
+    </div>
+    <div class="finder is-collapsed" id="finder-root">
+      <div class="finder__picker" role="group" aria-label="选择查询区域">
+        <span class="finder__picker-label gz-t-meta">选择区域</span>
+        <div class="finder__chips" id="finder-chips"></div>
+        <button class="finder__toggle" type="button" id="finder-toggle" aria-expanded="false" aria-controls="finder-result">
+          <span class="finder__toggle-label">展开详情</span>
+          <span class="finder__toggle-arrow" aria-hidden="true">▾</span>
+        </button>
+      </div>
+      <div class="finder__result" id="finder-result" aria-live="polite">
+        <p class="finder__placeholder">正在载入区域数据…</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="sec" id="map" aria-labelledby="h-map">
+    <div class="sec-head">
+      <span class="sec-head__num gz-t-meta">03</span>
+      <h2 id="h-map">电柜地图</h2>
+      <p class="sec-head__meta">按真实经纬度排布 · 气泡为各组可用桩数 · 可缩放拖动</p>
+    </div>
+    <div class="map-toolbar">
+      <p class="map-legend" id="map-legend">
+        <span class="map-legend__item"><span class="map-legend__dot" data-type="3"></span>充电桩</span>
+        <span class="map-legend__item"><span class="map-legend__dot" data-type="1"></span>换电柜</span>
+        <span class="map-legend__item"><span class="map-legend__dot" data-type="5"></span>混合柜</span>
+        <span class="map-legend__item"><span class="map-legend__dot" data-type="off"></span>离线</span>
+      </p>
+      <div class="map-actions">
+        <button class="btn btn--ghost" type="button" id="map-base" aria-pressed="false">街道图</button>
+        <button class="btn btn--ghost" type="button" id="map-reset">全览校区</button>
+      </div>
+    </div>
+    <div class="map-frame"><div id="cabinet-map" role="application" aria-label="电柜分布地图"></div></div>
+    <p class="map-note" id="map-note">气泡数字 = 该组可用桩数，灰色 0 空位、彩色有空位、红色离线。气泡钉在该组真实经纬度上（WGS84），缩放平移不漂移。点击气泡跳到对应组查看逐桩位。</p>
+  </section>
+
+  <section class="sec" id="compare" aria-labelledby="h-compare">
+    <div class="sec-head">
+      <span class="sec-head__num gz-t-meta">04</span>
+      <h2 id="h-compare">点位空闲率对比</h2>
+      <p class="sec-head__meta">刻度 15% / 40% 为等级分界</p>
+    </div>
+    <div class="compare" id="compare-list" aria-live="polite"></div>
+  </section>
+
+  <section class="sec" id="sites" aria-labelledby="h-sites">
+    <div class="sec-head">
+      <span class="sec-head__num gz-t-meta">05</span>
+      <h2 id="h-sites">点位明细</h2>
+      <p class="sec-head__meta">空闲数 / 总数 · 四档等级 · 空出推算</p>
+    </div>
+    <div class="site-grid" id="site-grid" aria-live="polite" aria-busy="true"></div>
+  </section>
+
+  <section class="sec" id="trend" aria-labelledby="h-trend">
+    <div class="sec-head">
+      <span class="sec-head__num gz-t-meta">06</span>
+      <h2 id="h-trend">每日桩位趋势</h2>
+      <p class="sec-head__meta">选日期与区域 · 看当天 0:00–23:59 的可用 / 占用桩位变化 · 每 10 分钟一点</p>
+    </div>
+    <div class="trend" id="trend-root">
+      <div class="trend__bar">
+        <div class="trend__areas" id="trend-areas" role="group" aria-label="选择区域"></div>
+        <div class="trend__metrics" role="group" aria-label="选择显示的曲线">
+          <button class="trend__metric is-active" type="button" data-metric="free" aria-pressed="true">可用桩位</button>
+          <button class="trend__metric" type="button" data-metric="occupied" aria-pressed="false">占用桩位</button>
+        </div>
+      </div>
+      <!-- 日期栏：默认折叠成一行，点「选择日期」展开最近 7 天 -->
+      <div class="trend__daybar is-collapsed" id="trend-daybar">
+        <button class="trend__daytoggle" type="button" id="trend-daytoggle"
+                aria-expanded="false" aria-controls="trend-days">
+          <span class="trend__daytoggle-label">选择日期</span>
+          <span class="trend__daytoggle-cur" id="trend-daycur">今天</span>
+          <span class="trend__daytoggle-arrow" aria-hidden="true">▾</span>
+        </button>
+        <div class="trend__days" id="trend-days" role="group" aria-label="选择日期"></div>
+      </div>
+      <div class="trend__chart" id="trend-chart" aria-live="polite">
+        <p class="trend__placeholder">正在载入历史趋势…</p>
+      </div>
+      <p class="trend__foot" id="trend-foot"></p>
+    </div>
+  </section>
+
+  <section class="sec" id="legend" aria-labelledby="h-legend">
+    <div class="sec-head">
+      <span class="sec-head__num gz-t-meta">07</span>
+      <h2 id="h-legend">图例与说明</h2>
+      <p class="sec-head__meta">等级定义、推算方法与免责声明</p>
+    </div>
+
+    <div class="legend">
+      <div class="legend__block">
+        <h3 class="legend__title">五档空闲等级（四档在线 + 离线）</h3>
+        <ul class="level-list">
+          <li class="level-item" data-level="high">
+            <span class="level-item__sw" aria-hidden="true"></span>
+            <span class="level-item__label">充裕</span>
+            <span class="level-item__num gz-tnum">&gt; 40%</span>
+            <span class="level-item__desc">空闲率高于 40%，基本随时可充</span>
+          </li>
+          <li class="level-item" data-level="mid">
+            <span class="level-item__sw" aria-hidden="true"></span>
+            <span class="level-item__label">一般</span>
+            <span class="level-item__num gz-tnum">15%–40%</span>
+            <span class="level-item__desc">有空位但不多，可能需要等一批</span>
+          </li>
+          <li class="level-item" data-level="low">
+            <span class="level-item__sw" aria-hidden="true"></span>
+            <span class="level-item__label">紧张</span>
+            <span class="level-item__num gz-tnum">0%–15%</span>
+            <span class="level-item__desc">仅剩零星空位，建议看其他点位</span>
+          </li>
+          <li class="level-item" data-level="none">
+            <span class="level-item__sw" aria-hidden="true"></span>
+            <span class="level-item__label">已满</span>
+            <span class="level-item__num gz-tnum">0 空位</span>
+            <span class="level-item__desc">在线电柜确实没有空闲桩位，需等待空出</span>
+          </li>
+          <li class="level-item" data-level="offline">
+            <span class="level-item__sw" aria-hidden="true"></span>
+            <span class="level-item__label">离线</span>
+            <span class="level-item__num gz-tnum">无读数</span>
+            <span class="level-item__desc">电柜失联，桩位状态未知；不计入空闲/占用统计</span>
+          </li>
+        </ul>
+        <p class="legend__hint">颜色仅作辅助，等级始终以文字标签为准。「已满」与「离线」含义不同：前者是确认没空位，后者是完全不知道。</p>
+      </div>
+
+      <div class="legend__block">
+        <h3 class="legend__title">「已充时长 / 剩余」怎么来的</h3>
+        <ol class="method">
+          <li>每 60 秒采集每台电柜的空闲数 <code>chargeable</code>。</li>
+          <li>空闲数下降，记为一次新占用；上升，则按先入先出取出一条完整充电记录。</li>
+          <li>用完整记录算中位充电时长；仍在占用的桩位：<span class="nowrap">已充 = 现在 − 入队时间</span>，<span class="nowrap">剩余 = 中位时长 − 已充</span>。</li>
+          <li>斜纹条段表示推算出的剩余时间，实心条段表示已发生的占用时间。</li>
+        </ol>
+        <p class="legend__hint">平台只公开电柜汇总数，逐桩位明细需登录，故本页时长为推算值。</p>
+        <p class="legend__hint"><strong>读数请按区间理解：</strong>「至少已充 X」的起点是服务器第一次看见该桩位被占用，不是真实插枪时间；所以剩余时间对应是「至多还剩 Y」。当前真实完整充电记录为 0 条时，全部时长按 180 分钟经验先验推算，卡片上会标注「经验先验」。</p>
+      </div>
+    </div>
+
+    <blockquote class="disclaimer">
+      <p class="disclaimer__tag gz-t-meta">免责声明 / DISCLAIMER</p>
+      <p>本页面数据来自青春号 TOSUN 公开的附近电柜查询接口（<code>getCabinetListAround</code>），
+      仅做只读聚合与展示，不涉及登录、账户、支付、订单或启停充电。</p>
+      <p>「已充时长 / 剩余时长」为基于空闲数变化的历史推算，<strong>非平台官方数据</strong>，仅供参考。
+      平台只提供电柜汇总数，无法拿到单个桩位的真实状态，因此<strong>桩位编号为逻辑编号</strong>，不是物理桩位号；
+      离线电柜的桩位状态完全未知，已从统计中剔除。</p>
+    </blockquote>
+
+    <div class="colophon">
+      <p><span class="colophon__k">数据源</span>cloud.tosunelectric.com · getCabinetListAround</p>
+      <p><span class="colophon__k">刷新</span>浏览器每 60 秒拉取 <code>/api/state</code></p>
+      <p><span class="colophon__k">设计</span>归藏设计 · 瑞士国际主义（纸色 #fafaf8 / 墨色 #0a0a0a / 安全橙 #FF6B35）</p>
+      <p><span class="colophon__k">构建</span>纯静态 HTML + CSS + 原生 JS，无构建步骤、无第三方依赖</p>
+    </div>
+  </section>
+</main>
+
+<footer class="page-foot wrap">
+  <p>SYSU SHENZHEN · CHARGE WATCH<span aria-hidden="true"> / </span>非官方页面，仅作只读展示</p>
+</footer>
+
+<noscript>
+  <p class="noscript wrap">本页面需要启用 JavaScript 才能读取电柜数据。</p>
+</noscript>
+
+<script src="vendor/leaflet/leaflet.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
